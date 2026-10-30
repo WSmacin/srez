@@ -80,7 +80,7 @@ export function AuthPage() {
   return (
     <div className="app-shell">
       <main className="app-main auth">
-        <div className="auth-logo">С</div>
+        <img className="auth-logo" src={`${import.meta.env.BASE_URL}apple-touch-icon.png`} alt="Срез" width={56} height={56} />
         <h1 className="title">
           Добро пожаловать
           <br />в Срез
