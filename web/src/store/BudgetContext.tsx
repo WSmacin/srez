@@ -4,10 +4,20 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { demoHousehold, demoUser, DEMO_PASSWORD } from "../data/demo";
+import {
+  apiInviteByNick,
+  apiJoinBySlug,
+  apiLogin,
+  apiLogout,
+  apiMe,
+  apiPutHousehold,
+  apiRegister,
+} from "../lib/api";
+import { supabase } from "../lib/supabase";
 import {
   buildPeriodsAround,
   daysLeft,
@@ -19,34 +29,43 @@ import {
 } from "../lib/finance";
 import type { Household, Obligation, SessionUser, Tx } from "../types";
 
-const STORAGE_KEY = "srez-v1";
-const USERS_KEY = "srez-users";
-
-type StoredUser = SessionUser & { password: string };
-
-type Persisted = {
-  user: SessionUser | null;
-  household: Household;
-};
+type Result = { ok: true; message?: string } | { ok: false; error: string };
 
 type BudgetContextValue = {
   user: SessionUser | null;
   household: Household;
-  login: (id: string, password: string) => { ok: true } | { ok: false; error: string };
+  ready: boolean;
+  syncing: boolean;
+  login: (id: string, password: string) => Promise<Result>;
   register: (
     nick: string,
     email: string,
     password: string,
     name: string,
-  ) => { ok: true } | { ok: false; error: string };
+  ) => Promise<Result>;
   logout: () => void;
   updateCash: (n: number) => void;
   updateSavings: (balance: number, rate: number, cap: CapMode, goal?: number) => void;
   updateDebt: (id: string, patch: Partial<Obligation>) => void;
   addSpend: (title: string, amount: number) => void;
   markDebtPayment: (id: string) => void;
-  inviteByNick: (nick: string) => { ok: true; message: string } | { ok: false; error: string };
+  inviteByNick: (nick: string) => Promise<Result>;
+  joinBySlug: (slug: string) => Promise<Result>;
   periodView: ReturnType<typeof usePeriodView>;
+};
+
+const emptyHousehold: Household = {
+  id: "",
+  inviteSlug: "",
+  members: [],
+  cashOnHand: 0,
+  savingsBalance: 0,
+  savingsRate: 0,
+  savingsCap: "m",
+  savingsGoal: 100000,
+  incomes: [],
+  obligations: [],
+  transactions: [],
 };
 
 function usePeriodView(hh: Household) {
@@ -141,110 +160,109 @@ function usePeriodView(hh: Household) {
 
 const BudgetContext = createContext<BudgetContextValue | null>(null);
 
-function load(): Persisted {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Persisted;
-  } catch {
-    /* ignore */
-  }
-  return { user: null, household: structuredClone(demoHousehold) };
-}
-
-function loadUsers(): StoredUser[] {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (raw) return JSON.parse(raw) as StoredUser[];
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
 export function BudgetProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SessionUser | null>(() => load().user);
-  const [household, setHousehold] = useState<Household>(() => load().household);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [household, setHousehold] = useState<Household>(emptyHousehold);
+  const [ready, setReady] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const periodView = usePeriodView(household);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipSave = useRef(true);
+
+  const pushHousehold = useCallback((hh: Household) => {
+    if (!hh.id) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setSyncing(true);
+      await apiPutHousehold(hh);
+      setSyncing(false);
+    }, 450);
+  }, []);
+
+  const applyHousehold = useCallback(
+    (updater: (h: Household) => Household) => {
+      setHousehold((prev) => {
+        const next = updater(prev);
+        pushHousehold(next);
+        return next;
+      });
+    },
+    [pushHousehold],
+  );
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ user, household }));
-  }, [user, household]);
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        if (!cancelled) setReady(true);
+        return;
+      }
+      const res = await apiMe();
+      if (cancelled) return;
+      if (res.ok && res.user && res.household) {
+        skipSave.current = true;
+        setUser(res.user);
+        setHousehold(res.household);
+      } else {
+        await apiLogout();
+      }
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const login = useCallback((id: string, password: string) => {
-    const key = id.trim().toLowerCase().replace(/^@/, "");
-    const isDemo =
-      (key === demoUser.email || key === demoUser.nick) &&
-      (password === DEMO_PASSWORD || password === "demo");
-    if (isDemo) {
-      setUser(demoUser);
-      setHousehold((h) => (h.members.length ? h : structuredClone(demoHousehold)));
-      return { ok: true as const };
+  useEffect(() => {
+    if (skipSave.current) {
+      skipSave.current = false;
     }
-    const found = loadUsers().find(
-      (u) => u.nick === key || u.email.toLowerCase() === key,
-    );
-    if (!found || found.password !== password) {
-      return {
-        ok: false as const,
-        error: "Неверный логин или пароль. Демо: anya@mail.ru / demo1234",
-      };
-    }
-    setUser({
-      id: found.id,
-      name: found.name,
-      nick: found.nick,
-      email: found.email,
-    });
-    return { ok: true as const };
+  }, [household]);
+
+  const login = useCallback(async (id: string, password: string): Promise<Result> => {
+    const res = await apiLogin(id, password);
+    if (!res.ok) return res;
+    skipSave.current = true;
+    setUser(res.user);
+    setHousehold(res.household);
+    return { ok: true };
   }, []);
 
   const register = useCallback(
-    (nick: string, email: string, password: string, name: string) => {
-      const n = nick.replace(/^@/, "").trim().toLowerCase();
-      if (n.length < 2) return { ok: false as const, error: "Укажите ник" };
-      if (!email.includes("@")) return { ok: false as const, error: "Укажите почту" };
-      if (password.length < 6)
-        return { ok: false as const, error: "Пароль не короче 6 символов" };
-      const users = loadUsers();
-      if (users.some((u) => u.nick === n || u.email === email.toLowerCase())) {
-        return { ok: false as const, error: "Такой ник или почта уже есть" };
-      }
-      const id = `u-${n}`;
-      const stored: StoredUser = {
-        id,
-        nick: n,
-        email: email.toLowerCase(),
-        password,
-        name: name.trim() || n,
-      };
-      localStorage.setItem(USERS_KEY, JSON.stringify([...users, stored]));
-      setUser({
-        id,
-        nick: n,
-        email: stored.email,
-        name: stored.name,
-      });
-      setHousehold({
-        ...structuredClone(demoHousehold),
-        id: `hh-${n}`,
-        inviteSlug: `${n}-budget`,
-        members: [{ id, name: stored.name, nick: n, role: "owner" }],
-        transactions: [],
-      });
-      return { ok: true as const };
+    async (
+      nick: string,
+      email: string,
+      password: string,
+      name: string,
+    ): Promise<Result> => {
+      const res = await apiRegister(nick, email, password, name);
+      if (!res.ok) return res;
+      skipSave.current = true;
+      setUser(res.user);
+      setHousehold(res.household);
+      return { ok: true };
     },
     [],
   );
 
-  const logout = useCallback(() => setUser(null), []);
-
-  const updateCash = useCallback((n: number) => {
-    setHousehold((h) => ({ ...h, cashOnHand: n }));
+  const logout = useCallback(() => {
+    void apiLogout();
+    setUser(null);
+    skipSave.current = true;
+    setHousehold(emptyHousehold);
   }, []);
+
+  const updateCash = useCallback(
+    (n: number) => {
+      applyHousehold((h) => ({ ...h, cashOnHand: n }));
+    },
+    [applyHousehold],
+  );
 
   const updateSavings = useCallback(
     (balance: number, rate: number, cap: CapMode, goal?: number) => {
-      setHousehold((h) => ({
+      applyHousehold((h) => ({
         ...h,
         savingsBalance: balance,
         savingsRate: rate,
@@ -252,15 +270,18 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         savingsGoal: goal ?? h.savingsGoal,
       }));
     },
-    [],
+    [applyHousehold],
   );
 
-  const updateDebt = useCallback((id: string, patch: Partial<Obligation>) => {
-    setHousehold((h) => ({
-      ...h,
-      obligations: h.obligations.map((o) => (o.id === id ? { ...o, ...patch } : o)),
-    }));
-  }, []);
+  const updateDebt = useCallback(
+    (id: string, patch: Partial<Obligation>) => {
+      applyHousehold((h) => ({
+        ...h,
+        obligations: h.obligations.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+      }));
+    },
+    [applyHousehold],
+  );
 
   const addSpend = useCallback(
     (title: string, amount: number) => {
@@ -273,18 +294,18 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         memberId: user.id,
         kind: "spend",
       };
-      setHousehold((h) => ({
+      applyHousehold((h) => ({
         ...h,
         cashOnHand: Math.max(0, h.cashOnHand - Math.abs(amount)),
         transactions: [tx, ...h.transactions],
       }));
     },
-    [user],
+    [user, applyHousehold],
   );
 
   const markDebtPayment = useCallback(
     (id: string) => {
-      setHousehold((h) => {
+      applyHousehold((h) => {
         const ob = h.obligations.find((o) => o.id === id);
         if (!ob || ob.balance == null) return h;
         const pay = ob.amount;
@@ -308,32 +329,30 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    [user],
+    [user, applyHousehold],
   );
 
-  const inviteByNick = useCallback((nick: string) => {
-    const n = nick.replace(/^@/, "").trim().toLowerCase();
-    if (!n) return { ok: false as const, error: "Введите ник" };
-    const h = household;
-    if (h.members.length >= 2) {
-      return { ok: false as const, error: "В бюджете уже двое" };
-    }
-    if (h.members.some((m) => m.nick === n)) {
-      return { ok: false as const, error: "Этот человек уже в бюджете" };
-    }
-    setHousehold({
-      ...h,
-      members: [
-        ...h.members,
-        { id: `u-${n}`, name: n, nick: n, role: "member" },
-      ],
-    });
-    return { ok: true as const, message: `Приглашение отправлено @${n}` };
-  }, [household]);
+  const inviteByNick = useCallback(async (nick: string): Promise<Result> => {
+    const res = await apiInviteByNick(nick);
+    if (!res.ok) return res;
+    skipSave.current = true;
+    setHousehold(res.household);
+    return { ok: true, message: res.message };
+  }, []);
+
+  const joinBySlug = useCallback(async (slug: string): Promise<Result> => {
+    const res = await apiJoinBySlug(slug);
+    if (!res.ok) return res;
+    skipSave.current = true;
+    setHousehold(res.household);
+    return { ok: true, message: res.message };
+  }, []);
 
   const value: BudgetContextValue = {
     user,
     household,
+    ready,
+    syncing,
     login,
     register,
     logout,
@@ -343,6 +362,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     addSpend,
     markDebtPayment,
     inviteByNick,
+    joinBySlug,
     periodView,
   };
 

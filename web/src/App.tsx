@@ -6,6 +6,7 @@ import { DebtPage } from "./pages/DebtPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { FeedPage } from "./pages/FeedPage";
 import { HomePage } from "./pages/HomePage";
+import { InvitePage } from "./pages/InvitePage";
 import { PiggyPage } from "./pages/PiggyPage";
 import { PlanPage } from "./pages/PlanPage";
 import { StatsPage } from "./pages/StatsPage";
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/invite/:slug" element={<InvitePage />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/accounts" element={<AccountsPage />} />

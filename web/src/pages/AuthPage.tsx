@@ -3,30 +3,45 @@ import { Navigate } from "react-router-dom";
 import { useBudget } from "../store/BudgetContext";
 
 export function AuthPage() {
-  const { user, login, register } = useBudget();
+  const { user, ready, login, register } = useBudget();
   const [mode, setMode] = useState<"login" | "reg">("login");
   const [error, setError] = useState("");
-  const [loginId, setLoginId] = useState("anya@mail.ru");
-  const [loginPass, setLoginPass] = useState("demo1234");
+  const [busy, setBusy] = useState(false);
+  const [loginId, setLoginId] = useState("");
+  const [loginPass, setLoginPass] = useState("");
   const [nick, setNick] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [name, setName] = useState("");
 
-  if (user) return <Navigate to="/" replace />;
-
-  function onLogin(e: FormEvent) {
-    e.preventDefault();
-    const res = login(loginId, loginPass);
-    if (!res.ok) setError(res.error);
-    else setError("");
+  if (!ready) {
+    return (
+      <div className="app-shell">
+        <main className="app-main auth">
+          <p className="hero-sub">Загрузка...</p>
+        </main>
+      </div>
+    );
   }
 
-  function onReg(e: FormEvent) {
+  if (user) return <Navigate to="/" replace />;
+
+  async function onLogin(e: FormEvent) {
     e.preventDefault();
-    const res = register(nick, email, pass, name);
+    setBusy(true);
+    setError("");
+    const res = await login(loginId, loginPass);
+    setBusy(false);
     if (!res.ok) setError(res.error);
-    else setError("");
+  }
+
+  async function onReg(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const res = await register(nick, email, pass, name);
+    setBusy(false);
+    if (!res.ok) setError(res.error);
   }
 
   return (
@@ -87,12 +102,9 @@ export function AuthPage() {
                 autoComplete="current-password"
               />
             </div>
-            <button className="btn primary full" type="submit">
-              Войти
+            <button className="btn primary full" type="submit" disabled={busy}>
+              {busy ? "Входим..." : "Войти"}
             </button>
-            <p className="hero-sub" style={{ marginTop: 12, textAlign: "center" }}>
-              Демо: anya@mail.ru / demo1234
-            </p>
           </form>
         ) : (
           <form onSubmit={onReg}>
@@ -125,8 +137,8 @@ export function AuthPage() {
                 onChange={(e) => setPass(e.target.value)}
               />
             </div>
-            <button className="btn primary full" type="submit">
-              Создать аккаунт
+            <button className="btn primary full" type="submit" disabled={busy}>
+              {busy ? "Создаем..." : "Создать аккаунт"}
             </button>
           </form>
         )}

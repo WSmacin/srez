@@ -1,22 +1,24 @@
 # Срез
 
-Личный продукт: семейный cashflow-бюджет по периодам зарплаты.
+Семейный cashflow-бюджет по периодам зарплаты.
 
-**Прод:** https://srez.pages.dev  
-Демо: `anya@mail.ru` / `demo1234`
+**Прод (из РФ):** https://wsmacin.github.io/srez/  
+**База:** Supabase Free (`norqhnglvxrniivsaglf`, Stockholm)  
+Репо: https://github.com/WSmacin/srez (public)
 
 | Путь | Что |
 |------|-----|
 | `design/` | UI-спека и HTML-прототип |
-| `web/` | Веб-приложение (Vite + React) |
+| `web/` | Vite + React (GitHub Pages) |
+| `supabase/` | schema.sql (Postgres + RLS + RPC) |
+| `worker/` | legacy Cloudflare Worker (не прод) |
 
-Деплой (с ПК, без wrangler/node-fetch к CF):
+## Деплой фронта
 
 ```powershell
 cd web
-powershell -ExecutionPolicy Bypass -File .\scripts\Deploy-CfPages.ps1
+npm run build
+# затем содержимое dist/ в ветку gh-pages
 ```
 
 План: `D:\Knowledge\projects\budget-cashflow-app.md`
-
-**Важно:** данные пока в localStorage браузера (на каждом телефоне свои). Общий семейный sync в облаке — следующий шаг (Supabase).

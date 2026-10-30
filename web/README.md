@@ -1,6 +1,6 @@
 # Срез (web)
 
-Семейный бюджет по периодам между зарплатами.
+Семейный бюджет по периодам между зарплатами. Данные в облаке (Worker + KV).
 
 ## Запуск
 
@@ -12,13 +12,14 @@ npm run dev
 
 Откройте URL из терминала (обычно http://127.0.0.1:5173).
 
-Демо-вход: `anya@mail.ru` / `demo1234`
+API по умолчанию: `https://srez-api.wsmacin.workers.dev`  
+Локально можно переопределить через `VITE_API_URL` в `.env`.
 
 ## Стек
 
 - Vite + React + TypeScript
 - React Router
-- Локальное хранение (localStorage); облачный sync (Supabase) — следующий этап
+- Cloudflare Worker + KV (JWT, общий household)
 
 ## Дизайн
 
