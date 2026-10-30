@@ -39,16 +39,22 @@ export function AuthPage() {
     setBusy(true);
     clearMessages();
     setStatus("Входим...");
-    const res = await login(loginId, loginPass);
-    setBusy(false);
-    setStatus("");
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
-    if (res.pendingConfirm) {
-      setInfo(res.message || "Подтвердите почту, затем войдите");
-      return;
+    try {
+      const res = await login(loginId, loginPass);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      if (res.pendingConfirm) {
+        setInfo(res.message || "Подтвердите почту, затем войдите");
+        return;
+      }
+      setStatus("Готово");
+    } catch {
+      setError("Не удалось войти. Попробуйте еще раз");
+    } finally {
+      setBusy(false);
+      setStatus("");
     }
   }
 
@@ -57,30 +63,41 @@ export function AuthPage() {
     setBusy(true);
     clearMessages();
     setStatus("Создаем аккаунт...");
-    const res = await register(nick, email, pass, name);
-    setBusy(false);
-    setStatus("");
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    try {
+      const res = await register(nick, email, pass, name);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      if (res.pendingConfirm) {
+        setInfo(
+          res.message ||
+            "Аккаунт создан. Подтвердите почту по ссылке из письма, затем войдите.",
+        );
+        setMode("login");
+        setLoginId(res.email || email);
+        setLoginPass("");
+        return;
+      }
+      setInfo("Аккаунт создан — открываем бюджет");
+    } catch {
+      setError("Не удалось зарегистрироваться. Попробуйте еще раз");
+    } finally {
+      setBusy(false);
+      setStatus("");
     }
-    if (res.pendingConfirm) {
-      setInfo(
-        res.message ||
-          "Аккаунт создан. Подтвердите почту по ссылке из письма, затем войдите.",
-      );
-      setMode("login");
-      setLoginId(res.email || email);
-      setLoginPass("");
-      return;
-    }
-    setInfo("Аккаунт создан — открываем бюджет");
   }
 
   return (
     <div className="app-shell">
       <main className="app-main auth">
-        <img className="auth-logo" src={`${import.meta.env.BASE_URL}apple-touch-icon.png`} alt="Срез" width={56} height={56} />
+        <img
+          className="auth-logo"
+          src={`${import.meta.env.BASE_URL}favicon.svg`}
+          alt="Срез"
+          width={56}
+          height={56}
+        />
         <h1 className="title">
           Добро пожаловать
           <br />в Срез

@@ -25,9 +25,9 @@ export function HomePage() {
           </h1>
         </div>
         <div className="avatars">
-          {household.members.slice(0, 2).map((m) => (
+          {(household.members ?? []).slice(0, 2).map((m) => (
             <div className="av" key={m.id}>
-              {m.name.slice(0, 1)}
+              {(m.name || m.nick || "?").slice(0, 1)}
             </div>
           ))}
         </div>

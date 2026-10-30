@@ -3,7 +3,7 @@ import { useBudget } from "../store/BudgetContext";
 
 export function FeedPage() {
   const { household } = useBudget();
-  const byId = Object.fromEntries(household.members.map((m) => [m.id, m]));
+  const byId = Object.fromEntries((household.members ?? []).map((m) => [m.id, m]));
 
   return (
     <>

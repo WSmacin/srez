@@ -11,7 +11,7 @@ export function FamilyPage() {
 
   async function onInvite(e: FormEvent) {
     e.preventDefault();
-    if (household.members.length >= 2) {
+    if ((household.members ?? []).length >= 2) {
       setMsg("В бюджете уже двое. Сначала кто-то должен выйти.");
       return;
     }
@@ -38,7 +38,7 @@ export function FamilyPage() {
       <h1 className="title">Семья</h1>
       {syncing ? <p className="hero-sub">Синхронизация...</p> : null}
 
-      {household.members.map((m) => (
+      {(household.members ?? []).map((m) => (
         <div className="item" key={m.id} style={{ cursor: "default" }}>
           <div className="av" style={{ border: "none" }}>
             {m.name.slice(0, 1)}
