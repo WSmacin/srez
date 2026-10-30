@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Срез — прототип v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #eef1f4;
+      --card: #ffffff;
+      --ink: #1c2430;
+      --mute: #6b7785;
+      --line: #e2e7ee;
+      --teal: #0f766e;
+      --teal-deep: #0b5f59;
+      --teal-soft: #e6f4f2;
+      --amber: #c2410c;
+      --amber-soft: #fff1e8;
+      --sky: #0369a1;
+      --sky-soft: #e8f4fc;
+      --ok: #15803d;
+      --shadow: 0 8px 24px rgba(28, 36, 48, 0.06);
+      --nav: 62px;
+      --r: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Manrope, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(160deg, #e8eef2 0%, #eef1f4 40%, #e7ece8 100%);
+      display: grid;
+      grid-template-columns: minmax(250px, 320px) 400px;
+      gap: 32px;
+      justify-content: center;
+      align-items: start;
+      padding: 32px 16px 48px;
+    }
+
+    .desk { position: sticky; top: 24px; }
+    .desk h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 8px;
+    }
+    .desk p {
+      margin: 0 0 12px;
+      color: var(--mute);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .desk .card-note {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--mute);
+      margin-bottom: 14px;
+    }
+    .desk .card-note b { color: var(--ink); }
+    .map { display: flex; flex-direction: column; gap: 6px; }
+    .map button {
+      text-align: left;
+      border: none;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      color: var(--ink);
+    }
+    .map button strong { display: block; font-size: 13px; font-weight: 700; }
+    .map button span { font-size: 12px; color: var(--mute); }
+    .map button.on { outline: 2px solid var(--teal); }
+
+    .stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .phone {
+      width: 390px;
+      height: 820px;
+      background: var(--bg);
+      border-radius: 36px;
+      border: 10px solid #1c2430;
+      box-shadow: 0 20px 50px rgba(28,36,48,.18);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .status {
+      height: 28px;
+      padding: 8px 20px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .view {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 16px calc(var(--nav) + 16px);
+    }
+    .view.on { display: flex; }
+    .view.auth-view { padding-bottom: 24px; }
+
+    .hello {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--mute);
+      margin-bottom: 2px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+    }
+    .row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .avatars { display: flex; }
+    .av {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--bg);
+    }
+    .av + .av { margin-left: -8px; background: var(--sky); }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .card.tight { padding: 12px; }
+
+    .period-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--teal-soft);
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+
+    .hero-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--teal);
+    }
+    .hero-sum {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin: 4px 0 6px;
+    }
+    .hero-sub { font-size: 13px; color: var(--mute); line-height: 1.35; }
+
+    .triplet {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .mini {
+      background: var(--bg);
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .mini .k { font-size: 11px; font-weight: 700; color: var(--mute); }
+    .mini .v { font-size: 15px; font-weight: 800; margin-top: 2px; letter-spacing: -0.02em; }
+    .mini .v.amber { color: var(--amber); }
+    .mini .v.teal { color: var(--teal); }
+
+    .hint {
+      background: var(--amber-soft);
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .accounts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .acc {
+      border: none;
+      text-align: left;
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+    }
+    .acc .k { font-size: 12px; font-weight: 700; color: var(--mute); }
+    .acc .v { font-size: 18px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
+    .acc.cash { background: var(--teal-soft); }
+    .acc.save { background: var(--sky-soft); }
+    .acc.save .v { color: var(--sky); }
+
+    .sec {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin: 8px 0 8px;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border: none;
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      margin-bottom: 8px;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .item .ico {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--teal-soft);
+      color: var(--teal);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .item .ico.amber { background: var(--amber-soft); color: var(--amber); }
+    .item .ico.sky { background: var(--sky-soft); color: var(--sky); }
+    .item .meta { flex: 1; min-width: 0; }
+    .item .name { font-weight: 700; font-size: 14px; }
+    .item .desc { font-size: 12px; color: var(--mute); margin-top: 2px; }
+    .item .amt { font-weight: 800; font-size: 14px; white-space: nowrap; }
+    .item .amt.amber { color: var(--amber); }
+    .item .amt.teal { color: var(--teal); }
+    .item .amt.sky { color: var(--sky); }
+
+    .btn-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; margin-top: 4px; }
+    .btn {
+      height: 48px;
+      border: none;
+      border-radius: 14px;
+      font: inherit;
+      font-weight: 750;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn.primary { background: var(--teal); color: #fff; }
+    .btn.primary:active { background: var(--teal-deep); }
+    .btn.ghost { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+    .btn.full { width: 100%; grid-column: 1 / -1; }
+    .btn.linkish {
+      background: transparent;
+      color: var(--teal);
+      height: auto;
+      padding: 8px;
+      font-weight: 700;
+    }
+
+    .field { margin-bottom: 10px; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--mute);
+      margin-bottom: 6px;
+    }
+    .field input, .field select {
+      width: 100%;
+      height: 48px;
+      border-radius: 14px;
+      border: 1.5px solid var(--line);
+      padding: 0 14px;
+      font: inherit;
+      font-size: 15px;
+      background: var(--card);
+      color: var(--ink);
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px var(--teal-soft);
+    }
+    .prefix {
+      display: flex;
+    }
+    .prefix span {
+      height: 48px;
+      padding: 0 12px;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      border: 1.5px solid var(--line);
+      border-right: none;
+      border-radius: 14px 0 0 14px;
+      font-weight: 700;
+      color: var(--mute);
+    }
+    .prefix input { border-radius: 0 14px 14px 0; }
+
+    .auth-logo {
+      width: 56px; height: 56px;
+      border-radius: 18px;
+      background: var(--teal);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 22px;
+      margin: 24px 0 14px;
+    }
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--card);
+      border-radius: 14px;
+      padding: 4px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+    .auth-tabs button {
+      border: none;
+      background: transparent;
+      height: 40px;
+      border-radius: 11px;
+      font: inherit;
+      font-weight: 700;
+      color: var(--mute);
+      cursor: pointer;
+    }
+    .auth-tabs button.on {
+      background: var(--teal-soft);
+      color: var(--teal);
+    }
+
+    .calc {
+      background: var(--bg);
+      border-radius: 14px;
+      padding: 12px;
+      margin: 8px 0 10px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .calc b { font-weight: 800; }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .slider-row input[type="range"] { width: 100%; }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .tabs button {
+      height: 40px;
+      border: none;
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      font: inherit;
+      font-weight: 700;
+      color: var(--mute);
+      cursor: pointer;
+    }
+    .tabs button.on { background: var(--teal); color: #fff; box-shadow: none; }
+
+    .pane { display: none; }
+    .pane.on { display: block; }
+
+    .nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: var(--nav);
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 5;
+    }
+    .nav.hidden { display: none; }
+    .nav button {
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--mute);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+    }
+    .nav button.on { color: var(--teal); }
+    .nav .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.35;
+    }
+    .nav button.on .dot { opacity: 1; width: 8px; height: 8px; }
+
+    .veil {
+      position: absolute; inset: 0;
+      background: rgba(28,36,48,.35);
+      display: none;
+      z-index: 8;
+    }
+    .veil.on { display: block; }
+    .sheet {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      background: var(--card);
+      border-radius: 24px 24px 0 0;
+      padding: 10px 16px 22px;
+      z-index: 9;
+      transform: translateY(110%);
+      transition: transform 200ms ease;
+      box-shadow: 0 -8px 30px rgba(28,36,48,.12);
+    }
+    .sheet.on { transform: translateY(0); }
+    .grab {
+      width: 40px; height: 4px;
+      background: var(--line);
+      border-radius: 99px;
+      margin: 4px auto 12px;
+    }
+    .sheet h3 { margin: 0 0 12px; font-size: 18px; font-weight: 800; }
+
+    .foot { font-size: 12px; color: var(--mute); text-align: center; }
+    .back {
+      border: none;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      border-radius: 12px;
+      height: 36px;
+      padding: 0 12px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .bar {
+      height: 8px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .bar i { display: block; height: 100%; background: var(--sky); border-radius: 99px; }
+
+    @media (max-width: 820px) {
+      body { grid-template-columns: 1fr; }
+      .desk { position: static; max-width: 400px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="desk">
+    <h1>Срез</h1>
+    <p>Мягкий UI как у Monarch/YNAB: скругления, Manrope, счета и копилка. Плюс вход и проценты.</p>
+    <div class="card-note">
+      <b>Модель для сборки:</b> Claude Opus 4.8 или GPT-5.4 —
+      финансы + аккуратный интерфейс. Для правок макета хватает Composer.
+    </div>
+    <div class="map" id="map"></div>
+  </aside>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="status"><span>21:58</span><span>84%</span></div>
+
+      <!-- ВХОД -->
+      <section class="view auth-view on" data-view="auth">
+        <div class="auth-logo">С</div>
+        <div class="title">Добро пожаловать<br>в Срез</div>
+        <p style="color:var(--mute);margin:0 0 14px;font-size:14px;line-height:1.4">
+          Бюджет по периодам зарплаты — для вас и близкого человека.
+        </p>
+        <div class="auth-tabs">
+          <button type="button" class="on" data-auth="login">Вход</button>
+          <button type="button" data-auth="reg">Регистрация</button>
+        </div>
+        <div class="pane on" data-auth-pane="login">
+          <div class="field">
+            <label for="loginId">Почта или ник</label>
+            <input id="loginId" type="text" value="anya@mail.ru" />
+          </div>
+          <div class="field">
+            <label for="loginPass">Пароль</label>
+            <input id="loginPass" type="password" value="********" />
+          </div>
+          <button class="btn primary full" type="button" data-go="home">Войти</button>
+          <button class="btn linkish full" type="button">Не помню пароль</button>
+        </div>
+        <div class="pane" data-auth-pane="reg">
+          <div class="field">
+            <label for="regNick">Ник</label>
+            <div class="prefix"><span>@</span><input id="regNick" type="text" placeholder="anya" /></div>
+          </div>
+          <div class="field">
+            <label for="regMail">Почта</label>
+            <input id="regMail" type="email" placeholder="you@mail.ru" />
+          </div>
+          <div class="field">
+            <label for="regPass">Пароль</label>
+            <input id="regPass" type="password" placeholder="не меньше 8 символов" />
+          </div>
+          <button class="btn primary full" type="button" data-go="home">Создать аккаунт</button>
+        </div>
+      </section>
+
+      <!-- СЕЙЧАС -->
+      <section class="view" data-view="home">
+        <div class="row-top">
+          <div>
+            <div class="hello">Привет, Аня</div>
+            <div class="title" style="margin:0;font-size:20px">Сейчас</div>
+          </div>
+          <div class="avatars"><div class="av">А</div><div class="av">М</div></div>
+        </div>
+
+        <div class="period-chip">25 окт — 9 ноя · еще 10 дней</div>
+
+        <div class="card">
+          <div class="hero-label">Можно тратить</div>
+          <div class="hero-sum">3 000 ₽</div>
+          <div class="hero-sub">После обязательных с этой зарплаты. Копилка сюда не входит.</div>
+          <div class="triplet">
+            <div class="mini"><div class="k">Всего</div><div class="v">10 000</div></div>
+            <div class="mini"><div class="k">Обязательные</div><div class="v amber">7 000</div></div>
+            <div class="mini"><div class="k">Осталось</div><div class="v teal">3 000</div></div>
+          </div>
+        </div>
+
+        <div class="accounts">
+          <button class="acc cash" type="button" data-go="accounts">
+            <div class="k">На руках</div>
+            <div class="v">24 500 ₽</div>
+          </button>
+          <button class="acc save" type="button" data-go="piggy">
+            <div class="k">Копилка</div>
+            <div class="v">62 000 ₽</div>
+          </button>
+        </div>
+
+        <div class="hint">
+          Кредит 7 000 ₽ к 30 октября берется из зарплаты 25-го — следующий приход будет позже срока.
+        </div>
+
+        <div class="sec">Ближайшее</div>
+        <button class="item" type="button" data-go="debt">
+          <div class="ico amber">%</div>
+          <div class="meta">
+            <div class="name">Кредит Альфа</div>
+            <div class="desc">30 окт · 18% годовых · с ЗП 25</div>
+          </div>
+          <div class="amt amber">−7 000</div>
+        </button>
+        <button class="item" type="button" data-go="plan">
+          <div class="ico">З</div>
+          <div class="meta">
+            <div class="name">Зарплата Макса</div>
+            <div class="desc">10 ноября</div>
+          </div>
+          <div class="amt teal">+10 000</div>
+        </button>
+        <button class="item" type="button" data-go="piggy">
+          <div class="ico sky">К</div>
+          <div class="meta">
+            <div class="name">Копилка · 12%</div>
+            <div class="desc">прогноз за год +7 440</div>
+          </div>
+          <div class="amt sky">62 000</div>
+        </button>
+
+        <div class="btn-row">
+          <button class="btn primary" type="button" id="openSheet">Добавить трату</button>
+          <button class="btn ghost" type="button" data-go="accounts">Счета</button>
+        </div>
+      </section>
+
+      <!-- СЧЕТА -->
+      <section class="view" data-view="accounts">
+        <div class="row-top">
+          <div class="title" style="margin:0">Счета</div>
+          <button class="back" type="button" data-go="home">Назад</button>
+        </div>
+        <p style="color:var(--mute);font-size:13px;margin:0 0 12px;line-height:1.4">
+          Сколько денег есть сейчас — не только будущая зарплата.
+        </p>
+
+        <div class="card">
+          <div class="sec" style="margin-top:0">На руках</div>
+          <div class="field">
+            <label for="cash">Наличные и карты (тратим отсюда)</label>
+            <input id="cash" type="text" inputmode="decimal" value="24500" />
+          </div>
+          <div class="hero-sub">Входит в расчет «можно тратить» текущего периода.</div>
+        </div>
+
+        <div class="card">
+          <div class="sec" style="margin-top:0">Копилка / сбережения</div>
+          <div class="field">
+            <label for="saveBal">Сейчас на сберегательном</label>
+            <input id="saveBal" type="text" inputmode="decimal" value="62000" />
+          </div>
+          <div class="field">
+            <label for="saveRate">Ставка вклада, % годовых</label>
+            <input id="saveRate" type="text" inputmode="decimal" value="12" />
+          </div>
+          <div class="calc" id="saveCalcPreview">
+            При 12% и капитализации раз в месяц через год примерно
+            <b>69 440 ₽</b> (доход ≈ 7 440 ₽).
+          </div>
+          <button class="btn ghost full" type="button" data-go="piggy">Открыть копилку</button>
+        </div>
+
+        <button class="btn primary full" type="button" data-go="home">Сохранить остатки</button>
+      </section>
+
+      <!-- КОПИЛКА -->
+      <section class="view" data-view="piggy">
+        <div class="row-top">
+          <div class="title" style="margin:0">Копилка</div>
+          <button class="back" type="button" data-go="home">Назад</button>
+        </div>
+
+        <div class="card" style="background:var(--sky-soft);box-shadow:none">
+          <div class="hero-label" style="color:var(--sky)">На сберегательном</div>
+          <div class="hero-sum" style="color:var(--sky)">62 000 ₽</div>
+          <div class="hero-sub">Не входит в «можно тратить», пока не переведете на руки</div>
+          <div class="bar"><i style="width:62%"></i></div>
+          <div class="hero-sub" style="margin-top:6px">Цель на отпуск 100 000 · собрано 62%</div>
+        </div>
+
+        <div class="card">
+          <div class="sec" style="margin-top:0">Условия вклада</div>
+          <div class="field">
+            <label for="depRate">Процент годовых</label>
+            <div class="slider-row">
+              <input id="depRate" type="range" min="0" max="25" step="0.1" value="12" />
+              <strong id="depRateLabel">12%</strong>
+            </div>
+          </div>
+          <div class="field">
+            <label for="depCap">Капитализация</label>
+            <select id="depCap">
+              <option value="m" selected>Каждый месяц</option>
+              <option value="q">Раз в квартал</option>
+              <option value="y">В конце года</option>
+            </select>
+          </div>
+          <div class="calc" id="depCalc">
+            Через 12 месяцев: <b>69 440 ₽</b><br>
+            Доход: <b>+7 440 ₽</b>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" type="button">Пополнить</button>
+          <button class="btn ghost" type="button">На руки</button>
+        </div>
+      </section>
+
+      <!-- ПЛАН -->
+      <section class="view" data-view="plan">
+        <div class="title">План</div>
+        <div class="sec">Доходы</div>
+        <div class="item" style="cursor:default">
+          <div class="ico">М</div>
+          <div class="meta">
+            <div class="name">Зарплата Макса</div>
+            <div class="desc">10 и 25 число · 10 000 ₽</div>
+          </div>
+        </div>
+        <div class="item" style="cursor:default">
+          <div class="ico">А</div>
+          <div class="meta">
+            <div class="name">Зарплата Ани</div>
+            <div class="desc">5 число · 18 000 ₽</div>
+          </div>
+        </div>
+        <div class="sec">Обязательные</div>
+        <button class="item" type="button" data-go="debt">
+          <div class="ico amber">%</div>
+          <div class="meta">
+            <div class="name">Кредит Альфа · 18%</div>
+            <div class="desc">ежемесячно · 30-е</div>
+          </div>
+          <div class="amt amber">7 000</div>
+        </button>
+        <div class="sec">Копилки к сроку</div>
+        <div class="item" style="cursor:default">
+          <div class="ico sky">О</div>
+          <div class="meta">
+            <div class="name">ОСАГО к марту</div>
+            <div class="desc">1 200 с периода · 1 200 / 14 400</div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" type="button">Платеж</button>
+          <button class="btn ghost" type="button">Доход</button>
+        </div>
+      </section>
+
+      <!-- ДОЛГ -->
+      <section class="view" data-view="debt">
+        <div class="row-top">
+          <div class="title" style="margin:0">Кредит Альфа</div>
+          <button class="back" type="button" data-go="home">Назад</button>
+        </div>
+
+        <div class="card">
+          <div class="hero-label" style="color:var(--amber)">Остаток долга</div>
+          <div class="hero-sum">84 000 ₽</div>
+          <div class="hero-sub">Платеж 7 000 ₽ · срок 30-е · с зарплаты 25-е</div>
+        </div>
+
+        <div class="card">
+          <div class="sec" style="margin-top:0">Ставка и пересчет</div>
+          <div class="field">
+            <label for="loanRate">Процент годовых</label>
+            <div class="slider-row">
+              <input id="loanRate" type="range" min="0" max="40" step="0.1" value="18" />
+              <strong id="loanRateLabel">18%</strong>
+            </div>
+          </div>
+          <div class="field">
+            <label for="loanPay">Ежемесячный платеж, ₽</label>
+            <input id="loanPay" type="text" inputmode="decimal" value="7000" />
+          </div>
+          <div class="calc" id="loanCalc">
+            При 18% и платеже 7 000 ₽:<br>
+            закрытие примерно <b>декабрь 2027</b> · 14 мес<br>
+            переплата по процентам ≈ <b>11 200 ₽</b>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" type="button">Отметить платеж</button>
+          <button class="btn ghost" type="button">Досрочно</button>
+        </div>
+      </section>
+
+      <!-- ЛЕНТА -->
+      <section class="view" data-view="feed">
+        <div class="title">Лента</div>
+        <div class="item" style="cursor:default">
+          <div class="ico">+</div>
+          <div class="meta"><div class="name">Зарплата Макса</div><div class="desc">25 окт · Макс</div></div>
+          <div class="amt teal">+10 000</div>
+        </div>
+        <div class="item" style="cursor:default">
+          <div class="ico amber">Р</div>
+          <div class="meta"><div class="name">Резерв под кредит</div><div class="desc">к 30 окт</div></div>
+          <div class="amt amber">−7 000</div>
+        </div>
+        <div class="item" style="cursor:default">
+          <div class="ico">П</div>
+          <div class="meta"><div class="name">Продукты</div><div class="desc">Аня</div></div>
+          <div class="amt amber">−1 240</div>
+        </div>
+        <div class="item" style="cursor:default">
+          <div class="ico sky">К</div>
+          <div class="meta"><div class="name">Пополнение копилки</div><div class="desc">перевод с карт</div></div>
+          <div class="amt sky">+3 000</div>
+        </div>
+      </section>
+
+      <!-- ИТОГИ -->
+      <section class="view" data-view="stats">
+        <div class="title">Итоги</div>
+        <div class="card">
+          <div class="sec" style="margin-top:0">Октябрь</div>
+          <div class="item" style="box-shadow:none;padding:8px 0;margin:0;cursor:default">
+            <div class="meta"><div class="name">Доходы</div></div>
+            <div class="amt">48 000</div>
+          </div>
+          <div class="item" style="box-shadow:none;padding:8px 0;margin:0;cursor:default">
+            <div class="meta"><div class="name">Долг уменьшился</div></div>
+            <div class="amt teal">−14 000</div>
+          </div>
+          <div class="item" style="box-shadow:none;padding:8px 0;margin:0;cursor:default">
+            <div class="meta"><div class="name">Копилка выросла</div></div>
+            <div class="amt sky">+5 200</div>
+          </div>
+          <div class="item" style="box-shadow:none;padding:8px 0;margin:0;cursor:default">
+            <div class="meta"><div class="name">Проценты по вкладу (оценка)</div></div>
+            <div class="amt sky">+620</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- СЕМЬЯ -->
+      <section class="view" data-view="family">
+        <div class="title">Семья</div>
+        <div class="item" style="cursor:default">
+          <div class="av" style="border:none">А</div>
+          <div class="meta"><div class="name">Аня · @anya</div><div class="desc">владелец</div></div>
+        </div>
+        <div class="item" style="cursor:default">
+          <div class="av" style="border:none;background:var(--sky)">М</div>
+          <div class="meta"><div class="name">Макс · @max</div><div class="desc">участник</div></div>
+        </div>
+
+        <div class="sec">Пригласить</div>
+        <div class="tabs">
+          <button type="button" class="on" data-inv="nick">По нику</button>
+          <button type="button" data-inv="link">По ссылке</button>
+        </div>
+        <div class="pane on" data-inv-pane="nick">
+          <div class="field">
+            <label for="invNick">Ник</label>
+            <div class="prefix"><span>@</span><input id="invNick" placeholder="друг" /></div>
+          </div>
+          <button class="btn primary full" type="button">Пригласить</button>
+        </div>
+        <div class="pane" data-inv-pane="link">
+          <div class="card tight" style="font-size:13px;word-break:break-all">https://srez.app/p/anya-dom</div>
+          <button class="btn primary full" type="button">Скопировать ссылку</button>
+        </div>
+        <button class="btn linkish full" type="button" data-go="auth">Выйти из аккаунта</button>
+      </section>
+
+      <nav class="nav hidden" id="nav" aria-label="Разделы">
+        <button type="button" data-nav="home" class="on"><span class="dot"></span>Сейчас</button>
+        <button type="button" data-nav="feed"><span class="dot"></span>Лента</button>
+        <button type="button" data-nav="plan"><span class="dot"></span>План</button>
+        <button type="button" data-nav="stats"><span class="dot"></span>Итоги</button>
+        <button type="button" data-nav="family"><span class="dot"></span>Семья</button>
+      </nav>
+
+      <div class="veil" id="veil"></div>
+      <div class="sheet" id="sheet">
+        <div class="grab"></div>
+        <h3>Новая трата</h3>
+        <div class="field"><label for="sum">Сумма</label><input id="sum" value="450" /></div>
+        <div class="field">
+          <label for="cat">Категория</label>
+          <select id="cat"><option>Продукты</option><option>Кафе</option><option>Транспорт</option></select>
+        </div>
+        <div class="field">
+          <label for="who">Кто</label>
+          <select id="who"><option>Аня</option><option>Макс</option></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" type="button" id="saveSheet">Сохранить</button>
+          <button class="btn ghost" type="button" id="closeSheet">Отмена</button>
+        </div>
+      </div>
+    </div>
+    <p class="foot">v3 · мягкий UI · начните с экрана входа</p>
+  </div>
+
+  <script>
+    const labels = {
+      auth: ["Вход", "почта/ник и пароль"],
+      home: ["Сейчас", "можно тратить + счета"],
+      accounts: ["Счета", "на руках и копилка"],
+      piggy: ["Копилка", "баланс и % вклада"],
+      plan: ["План", "доходы и платежи"],
+      debt: ["Долг", "ставка % и пересчет"],
+      feed: ["Лента", "события"],
+      stats: ["Итоги", "факт месяца"],
+      family: ["Семья", "ник или ссылка"],
+    };
+
+    const map = document.getElementById("map");
+    const nav = document.getElementById("nav");
+    const mainTabs = new Set(["home", "feed", "plan", "stats", "family"]);
+
+    Object.entries(labels).forEach(([id, [t, d]]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.go = id;
+      b.innerHTML = `<strong>${t}</strong><span>${d}</span>`;
+      if (id === "auth") b.classList.add("on");
+      map.appendChild(b);
+    });
+
+    function show(id) {
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.dataset.view === id));
+      document.querySelectorAll("#map button").forEach((b) => b.classList.toggle("on", b.dataset.go === id));
+      nav.classList.toggle("hidden", id === "auth");
+      document.querySelectorAll(".nav button").forEach((b) => {
+        b.classList.toggle("on", b.dataset.nav === id);
+      });
+      if (!mainTabs.has(id)) {
+        document.querySelectorAll(".nav button").forEach((b) => b.classList.remove("on"));
+      }
+    }
+
+    document.body.addEventListener("click", (e) => {
+      const go = e.target.closest("[data-go]");
+      if (go) show(go.dataset.go);
+      const n = e.target.closest("[data-nav]");
+      if (n) show(n.dataset.nav);
+    });
+
+    document.querySelectorAll("[data-auth]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll("[data-auth]").forEach((t) => t.classList.remove("on"));
+        tab.classList.add("on");
+        document.querySelectorAll("[data-auth-pane]").forEach((p) => {
+          p.classList.toggle("on", p.dataset.authPane === tab.dataset.auth);
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-inv]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll("[data-inv]").forEach((t) => t.classList.remove("on"));
+        tab.classList.add("on");
+        document.querySelectorAll("[data-inv-pane]").forEach((p) => {
+          p.classList.toggle("on", p.dataset.invPane === tab.dataset.inv);
+        });
+      });
+    });
+
+    const sheet = document.getElementById("sheet");
+    const veil = document.getElementById("veil");
+    const openSheet = document.getElementById("openSheet");
+    const close = () => { sheet.classList.remove("on"); veil.classList.remove("on"); };
+    if (openSheet) openSheet.addEventListener("click", () => {
+      sheet.classList.add("on"); veil.classList.add("on");
+    });
+    document.getElementById("closeSheet").addEventListener("click", close);
+    document.getElementById("saveSheet").addEventListener("click", close);
+    veil.addEventListener("click", close);
+
+    function money(n) {
+      return Math.round(n).toLocaleString("ru-RU");
+    }
+
+    function depositFuture(principal, annualPct, months, mode) {
+      const r = annualPct / 100;
+      let m;
+      if (mode === "m") m = 12;
+      else if (mode === "q") m = 4;
+      else m = 1;
+      const periods = (months / 12) * m;
+      const rate = r / m;
+      return principal * Math.pow(1 + rate, periods);
+    }
+
+    function loanSchedule(balance, annualPct, payment) {
+      const monthlyRate = annualPct / 100 / 12;
+      let bal = balance;
+      let months = 0;
+      let interestTotal = 0;
+      const guard = 600;
+      if (payment <= 0) return { months: null, interestTotal: null };
+      while (bal > 0.5 && months < guard) {
+        const interest = bal * monthlyRate;
+        interestTotal += interest;
+        const principal = payment - interest;
+        if (principal <= 0) return { months: null, interestTotal: null };
+        bal -= principal;
+        months += 1;
+      }
+      return { months, interestTotal };
+    }
+
+    function monthNameFromNow(addMonths) {
+      const d = new Date(2026, 9, 30);
+      d.setMonth(d.getMonth() + addMonths);
+      const names = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+      return names[d.getMonth()] + " " + d.getFullYear();
+    }
+
+    function refreshDeposit() {
+      const rate = parseFloat(document.getElementById("depRate").value) || 0;
+      const mode = document.getElementById("depCap").value;
+      document.getElementById("depRateLabel").textContent = rate.toString().replace(".", ",") + "%";
+      const future = depositFuture(62000, rate, 12, mode);
+      document.getElementById("depCalc").innerHTML =
+        `Через 12 месяцев: <b>${money(future)} ₽</b><br>Доход: <b>+${money(future - 62000)} ₽</b>`;
+    }
+
+    function refreshLoan() {
+      const rate = parseFloat(document.getElementById("loanRate").value) || 0;
+      const pay = parseFloat(String(document.getElementById("loanPay").value).replace(/\s/g, "")) || 0;
+      document.getElementById("loanRateLabel").textContent = rate.toString().replace(".", ",") + "%";
+      const { months, interestTotal } = loanSchedule(84000, rate, pay);
+      const el = document.getElementById("loanCalc");
+      if (months == null) {
+        el.innerHTML = "Платеж слишком мал для погашения при этой ставке. Увеличьте платеж.";
+        return;
+      }
+      el.innerHTML =
+        `При ${rate.toString().replace(".", ",")}% и платеже ${money(pay)} ₽:<br>` +
+        `закрытие примерно <b>${monthNameFromNow(months)}</b> · ${months} мес<br>` +
+        `переплата по процентам ≈ <b>${money(interestTotal)} ₽</b>`;
+    }
+
+    document.getElementById("depRate").addEventListener("input", refreshDeposit);
+    document.getElementById("depCap").addEventListener("change", refreshDeposit);
+    document.getElementById("loanRate").addEventListener("input", refreshLoan);
+    document.getElementById("loanPay").addEventListener("input", refreshLoan);
+    refreshDeposit();
+    refreshLoan();
+  </script>
+</body>
+</html>
