@@ -169,6 +169,11 @@
   margin-bottom: 10px;
 }
 
+.hint.ok {
+  background: var(--teal-soft);
+  color: var(--ink);
+}
+
 .accounts {
   display: grid;
   grid-template-columns: 1fr 1fr;

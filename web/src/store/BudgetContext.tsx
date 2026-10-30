@@ -29,7 +29,9 @@ import {
 } from "../lib/finance";
 import type { Household, Obligation, SessionUser, Tx } from "../types";
 
-type Result = { ok: true; message?: string } | { ok: false; error: string };
+type Result =
+  | { ok: true; message?: string; pendingConfirm?: boolean; email?: string }
+  | { ok: false; error: string };
 
 type BudgetContextValue = {
   user: SessionUser | null;
@@ -223,6 +225,17 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (id: string, password: string): Promise<Result> => {
     const res = await apiLogin(id, password);
     if (!res.ok) return res;
+    if ("pendingConfirm" in res && res.pendingConfirm) {
+      return {
+        ok: true,
+        pendingConfirm: true,
+        email: res.email,
+        message: res.message,
+      };
+    }
+    if (!("user" in res) || !res.user) {
+      return { ok: false, error: "Не удалось войти" };
+    }
     skipSave.current = true;
     setUser(res.user);
     setHousehold(res.household);
@@ -238,10 +251,21 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     ): Promise<Result> => {
       const res = await apiRegister(nick, email, password, name);
       if (!res.ok) return res;
+      if ("pendingConfirm" in res && res.pendingConfirm) {
+        return {
+          ok: true,
+          pendingConfirm: true,
+          email: res.email,
+          message: res.message,
+        };
+      }
+      if (!("user" in res) || !res.user) {
+        return { ok: false, error: "Не удалось зарегистрироваться" };
+      }
       skipSave.current = true;
       setUser(res.user);
       setHousehold(res.household);
-      return { ok: true };
+      return { ok: true, message: "Аккаунт создан" };
     },
     [],
   );

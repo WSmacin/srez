@@ -6,7 +6,9 @@ export function AuthPage() {
   const { user, ready, login, register } = useBudget();
   const [mode, setMode] = useState<"login" | "reg">("login");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
   const [loginId, setLoginId] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [nick, setNick] = useState("");
@@ -26,22 +28,53 @@ export function AuthPage() {
 
   if (user) return <Navigate to="/" replace />;
 
+  function clearMessages() {
+    setError("");
+    setInfo("");
+    setStatus("");
+  }
+
   async function onLogin(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError("");
+    clearMessages();
+    setStatus("Входим...");
     const res = await login(loginId, loginPass);
     setBusy(false);
-    if (!res.ok) setError(res.error);
+    setStatus("");
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    if (res.pendingConfirm) {
+      setInfo(res.message || "Подтвердите почту, затем войдите");
+      return;
+    }
   }
 
   async function onReg(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError("");
+    clearMessages();
+    setStatus("Создаем аккаунт...");
     const res = await register(nick, email, pass, name);
     setBusy(false);
-    if (!res.ok) setError(res.error);
+    setStatus("");
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    if (res.pendingConfirm) {
+      setInfo(
+        res.message ||
+          "Аккаунт создан. Подтвердите почту по ссылке из письма, затем войдите.",
+      );
+      setMode("login");
+      setLoginId(res.email || email);
+      setLoginPass("");
+      return;
+    }
+    setInfo("Аккаунт создан — открываем бюджет");
   }
 
   return (
@@ -62,7 +95,7 @@ export function AuthPage() {
             className={mode === "login" ? "on" : undefined}
             onClick={() => {
               setMode("login");
-              setError("");
+              clearMessages();
             }}
           >
             Вход
@@ -72,7 +105,7 @@ export function AuthPage() {
             className={mode === "reg" ? "on" : undefined}
             onClick={() => {
               setMode("reg");
-              setError("");
+              clearMessages();
             }}
           >
             Регистрация
@@ -80,6 +113,8 @@ export function AuthPage() {
         </div>
 
         {error ? <div className="hint">{error}</div> : null}
+        {info ? <div className="hint ok">{info}</div> : null}
+        {status ? <p className="hero-sub">{status}</p> : null}
 
         {mode === "login" ? (
           <form onSubmit={onLogin}>
@@ -90,6 +125,8 @@ export function AuthPage() {
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 autoComplete="username"
+                placeholder="name@mail.ru"
+                disabled={busy}
               />
             </div>
             <div className="field">
@@ -100,23 +137,37 @@ export function AuthPage() {
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 autoComplete="current-password"
+                disabled={busy}
               />
             </div>
             <button className="btn primary full" type="submit" disabled={busy}>
               {busy ? "Входим..." : "Войти"}
             </button>
+            <p className="hero-sub" style={{ marginTop: 12, textAlign: "center" }}>
+              Быстрее входить по почте. Ник тоже можно.
+            </p>
           </form>
         ) : (
           <form onSubmit={onReg}>
             <div className="field">
               <label htmlFor="name">Имя</label>
-              <input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={busy}
+              />
             </div>
             <div className="field">
               <label htmlFor="nick">Ник</label>
               <div className="prefix">
                 <span>@</span>
-                <input id="nick" value={nick} onChange={(e) => setNick(e.target.value)} />
+                <input
+                  id="nick"
+                  value={nick}
+                  onChange={(e) => setNick(e.target.value)}
+                  disabled={busy}
+                />
               </div>
             </div>
             <div className="field">
@@ -126,6 +177,7 @@ export function AuthPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={busy}
               />
             </div>
             <div className="field">
@@ -135,10 +187,11 @@ export function AuthPage() {
                 type="password"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
+                disabled={busy}
               />
             </div>
             <button className="btn primary full" type="submit" disabled={busy}>
-              {busy ? "Создаем..." : "Создать аккаунт"}
+              {busy ? "Создаем аккаунт..." : "Создать аккаунт"}
             </button>
           </form>
         )}

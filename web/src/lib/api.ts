@@ -1,9 +1,26 @@
+import type { User } from "@supabase/supabase-js";
 import type { Household, SessionUser } from "../types";
 import { supabase } from "./supabase";
 
 type ApiOk<T> = { ok: true } & T;
 type ApiErr = { ok: false; error: string };
 type Result<T> = ApiOk<T> | ApiErr;
+
+export type AuthOk = {
+  ok: true;
+  token: string;
+  user: SessionUser;
+  household: Household;
+};
+
+export type AuthPending = {
+  ok: true;
+  pendingConfirm: true;
+  email: string;
+  message: string;
+};
+
+export type AuthResult = AuthOk | AuthPending | ApiErr;
 
 function mapErr(e: unknown, fallback: string): ApiErr {
   const msg =
@@ -12,14 +29,15 @@ function mapErr(e: unknown, fallback: string): ApiErr {
       : fallback;
   const known: Record<string, string> = {
     "Invalid login credentials": "Неверный логин или пароль",
-    "User already registered": "Почта уже зарегистрирована",
-    "nick taken": "Ник занят",
+    "User already registered": "Эта почта уже зарегистрирована — войдите",
+    "nick taken": "Ник занят — выберите другой",
     "nick too short": "Укажите ник",
-    "user not found": "Пользователь с таким ником не найден. Пусть сначала зарегистрируется.",
+    "user not found":
+      "Пользователь с таким ником не найден. Пусть сначала зарегистрируется.",
     "household full": "В бюджете уже двое",
     "already member": "Этот человек уже в бюджете",
     "invalid invite": "Ссылка недействительна",
-    "Email not confirmed": "Подтвердите почту по ссылке из письма",
+    "Email not confirmed": "Подтвердите почту по ссылке из письма, затем войдите",
   };
   for (const [k, v] of Object.entries(known)) {
     if (msg.toLowerCase().includes(k.toLowerCase())) return { ok: false, error: v };
@@ -31,28 +49,17 @@ function asHousehold(raw: unknown): Household {
   return raw as Household;
 }
 
-async function loadProfileUser(): Promise<SessionUser | null> {
-  const { data: auth } = await supabase.auth.getUser();
-  const u = auth.user;
-  if (!u) return null;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, nick, name, email")
-    .eq("id", u.id)
-    .maybeSingle();
-  if (!profile) {
-    return {
-      id: u.id,
-      email: u.email || "",
-      nick: String(u.user_metadata?.nick || ""),
-      name: String(u.user_metadata?.name || u.email || ""),
-    };
-  }
+function looksLikeEmail(id: string) {
+  return id.includes("@");
+}
+
+function sessionUserFromAuth(u: User, household?: Household | null): SessionUser {
+  const mate = household?.members.find((m) => m.id === u.id);
   return {
-    id: profile.id,
-    nick: profile.nick,
-    name: profile.name,
-    email: profile.email,
+    id: u.id,
+    email: u.email || "",
+    nick: mate?.nick || String(u.user_metadata?.nick || "").replace(/^@/, ""),
+    name: mate?.name || String(u.user_metadata?.name || u.email || ""),
   };
 }
 
@@ -77,26 +84,35 @@ async function ensureProfile(
   return { ok: true, household: asHousehold(data) };
 }
 
-export type AuthPayload = {
-  token: string;
-  user: SessionUser;
-  household: Household;
-};
+async function resolveEmail(login: string): Promise<Result<{ email: string }>> {
+  const raw = login.trim().replace(/^@/, "");
+  if (looksLikeEmail(raw)) return { ok: true, email: raw.toLowerCase() };
+  const { data, error } = await supabase.rpc("resolve_login_email", { login: raw });
+  if (error) return mapErr(error, "Ошибка входа");
+  if (!data) {
+    return {
+      ok: false,
+      error: "Ник не найден. Войдите по почте или зарегистрируйтесь",
+    };
+  }
+  return { ok: true, email: String(data) };
+}
 
-export async function apiLogin(id: string, password: string): Promise<Result<AuthPayload>> {
+export async function apiLogin(id: string, password: string): Promise<AuthResult> {
   try {
-    const { data: emailData, error: resolveErr } = await supabase.rpc(
-      "resolve_login_email",
-      { login: id },
-    );
-    if (resolveErr) return mapErr(resolveErr, "Ошибка входа");
-    const email = (emailData as string | null) || id.trim();
+    const resolved = await resolveEmail(id);
+    if (!resolved.ok) return resolved;
+    const email = resolved.email;
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error || !data.session || !data.user) {
-      return mapErr(error || { message: "Неверный логин или пароль" }, "Неверный логин или пароль");
+      return mapErr(
+        error || { message: "Неверный логин или пароль" },
+        "Неверный логин или пароль",
+      );
     }
 
     const hhRes = await supabase.rpc("get_my_household");
@@ -113,12 +129,10 @@ export async function apiLogin(id: string, password: string): Promise<Result<Aut
       household = ensured.household;
     }
 
-    const user = await loadProfileUser();
-    if (!user) return { ok: false, error: "Нет профиля" };
     return {
       ok: true,
       token: data.session.access_token,
-      user,
+      user: sessionUserFromAuth(data.user, household),
       household,
     };
   } catch (e) {
@@ -131,10 +145,16 @@ export async function apiRegister(
   email: string,
   password: string,
   name: string,
-): Promise<Result<AuthPayload & { needsConfirm?: boolean }>> {
+): Promise<AuthResult> {
   try {
     const n = nick.replace(/^@/, "").trim().toLowerCase();
     const em = email.trim().toLowerCase();
+    if (n.length < 2) return { ok: false, error: "Укажите ник" };
+    if (!em.includes("@")) return { ok: false, error: "Укажите почту" };
+    if (password.length < 6) {
+      return { ok: false, error: "Пароль не короче 6 символов" };
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: em,
       password,
@@ -143,21 +163,31 @@ export async function apiRegister(
     if (error) return mapErr(error, "Не удалось зарегистрироваться");
     if (!data.user) return { ok: false, error: "Не удалось зарегистрироваться" };
 
-    if (!data.session) {
+    // Already registered: Supabase may return user without new identities
+    const identities = data.user.identities ?? [];
+    if (identities.length === 0) {
       return {
         ok: false,
-        error: "Проверьте почту и подтвердите регистрацию, затем войдите",
+        error: "Эта почта уже зарегистрирована — войдите",
+      };
+    }
+
+    if (!data.session) {
+      return {
+        ok: true,
+        pendingConfirm: true,
+        email: em,
+        message:
+          "Аккаунт создан. Подтвердите почту по ссылке из письма, затем войдите.",
       };
     }
 
     const ensured = await ensureProfile(n, name.trim() || n, em);
     if (!ensured.ok) return ensured;
-    const user = await loadProfileUser();
-    if (!user) return { ok: false, error: "Нет профиля" };
     return {
       ok: true,
       token: data.session.access_token,
-      user,
+      user: sessionUserFromAuth(data.user, ensured.household),
       household: ensured.household,
     };
   } catch (e) {
@@ -168,27 +198,39 @@ export async function apiRegister(
 export async function apiMe(): Promise<Result<{ user: SessionUser; household: Household }>> {
   try {
     const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) return { ok: false, error: "Нужен вход" };
-    const user = await loadProfileUser();
-    if (!user) return { ok: false, error: "Нужен вход" };
-    let hhRes = await supabase.rpc("get_my_household");
+    const session = sess.session;
+    if (!session?.user) return { ok: false, error: "Нужен вход" };
+
+    const hhRes = await supabase.rpc("get_my_household");
     if (hhRes.error) return mapErr(hhRes.error, "Не удалось загрузить бюджет");
     if (!hhRes.data) {
+      const meta = session.user.user_metadata || {};
       const ensured = await ensureProfile(
-        user.nick || user.email.split("@")[0],
-        user.name,
-        user.email,
+        String(meta.nick || (session.user.email || "").split("@")[0]),
+        String(meta.name || ""),
+        session.user.email || "",
       );
       if (!ensured.ok) return ensured;
-      return { ok: true, user, household: ensured.household };
+      return {
+        ok: true,
+        user: sessionUserFromAuth(session.user, ensured.household),
+        household: ensured.household,
+      };
     }
-    return { ok: true, user, household: asHousehold(hhRes.data) };
+    const household = asHousehold(hhRes.data);
+    return {
+      ok: true,
+      user: sessionUserFromAuth(session.user, household),
+      household,
+    };
   } catch (e) {
     return mapErr(e, "Нет связи с сервером");
   }
 }
 
-export async function apiPutHousehold(household: Household): Promise<Result<{ household: Household }>> {
+export async function apiPutHousehold(
+  household: Household,
+): Promise<Result<{ household: Household }>> {
   const { data, error } = await supabase.rpc("put_household", {
     payload: household,
   });
@@ -223,13 +265,4 @@ export async function apiJoinBySlug(
 
 export async function apiLogout() {
   await supabase.auth.signOut();
-}
-
-/** kept for BudgetContext compatibility — session lives in supabase */
-export function getToken(): string | null {
-  return "supabase";
-}
-
-export function setToken(_token: string | null) {
-  /* session handled by supabase-js */
 }
