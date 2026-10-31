@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Срез">
+  <rect width="128" height="128" rx="28" fill="#12100e"/>
+  <rect x="10" y="10" width="108" height="108" rx="22" fill="#1c1916" stroke="#2e2924" stroke-width="2"/>
+  <path
+    fill="none"
+    stroke="#c8f055"
+    stroke-width="16"
+    stroke-linecap="round"
+    d="M90 40c-8-9.5-20.5-15.5-34.5-15.5C31 24.5 12 43.5 12 67s19 42.5 43.5 42.5c14 0 26.5-6 34.5-15.5"
+  />
+  <circle cx="94" cy="67" r="9" fill="#e8a060"/>
+</svg>
